@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -19,13 +20,17 @@ import {
   LoginResponse,
   RefreshResponse,
 } from '../common/interfaces';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private mailService: MailService,
   ) {}
 
   private generateOtp(): string {
@@ -63,8 +68,8 @@ export class AuthService {
 
     const user = await this.usersService.createUser(userData, dto.password);
 
-    // Send OTP (console log for now, swap to email/SMS later)
-    await this.sendOtp(user.id);
+    // Send OTP via email
+    await this.sendOtp(user.id, user.email, user.role, user.firstName || user.contactPerson);
 
     return {
       message: OTP_MESSAGES.SENT,
@@ -76,7 +81,7 @@ export class AuthService {
   }
 
   // --- OTP ---
-  async sendOtp(userId: string) {
+  async sendOtp(userId: string, email?: string, role?: UserRole, name?: string) {
     const otp = this.generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
     const minutes = Number(this.config.get('OTP_EXPIRE_MINUTES', 5));
@@ -84,8 +89,13 @@ export class AuthService {
 
     await this.usersService.setOtp(userId, otpHash, expiresAt);
 
-    // In production: send via email/SMS
-    console.log(`\n=== OTP for user ${userId}: ${otp} (expires in ${minutes}m) ===\n`);
+    // Always log in dev – helps if SMTP fails
+    this.logger.log(`OTP for user ${userId} (${email}): ${otp} (expires ${minutes}m)`);
+
+    // Send real email if we have an email address
+    if (email) {
+      await this.mailService.sendOtpEmail(email, otp, name, role);
+    }
     return true;
   }
 
@@ -113,7 +123,12 @@ export class AuthService {
     if (!user) throw new BadRequestException(USER_MESSAGES.USER_NOT_FOUND);
     if (user.isEmailVerified) throw new BadRequestException(OTP_MESSAGES.ALREADY_VERIFIED);
 
-    await this.sendOtp(user.id);
+    await this.sendOtp(
+      user.id,
+      user.email,
+      user.role,
+      user.firstName || user.contactPerson,
+    );
     return { message: OTP_MESSAGES.RESENT };
   }
 

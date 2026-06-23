@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { getDatabaseConfig } from './config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AuthModule } from './auth/auth.module';
       inject: [ConfigService],
       useFactory: getDatabaseConfig,
     }),
+    MailModule, // @Global() – makes MailService available everywhere
     UsersModule,
     AuthModule,
   ],

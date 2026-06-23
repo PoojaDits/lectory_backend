@@ -11,6 +11,7 @@ import { LocalStrategy, JwtStrategy, JwtRefreshStrategy } from './strategies';
 @Module({
   imports: [
     UsersModule,
+    // MailModule is @Global(), no need to import here
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
