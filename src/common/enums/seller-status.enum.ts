@@ -1,0 +1,5 @@
+export enum SellerStatus {
+  PENDING = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
