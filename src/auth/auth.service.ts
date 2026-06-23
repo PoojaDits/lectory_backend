@@ -9,10 +9,16 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
-import { RegisterDto, LoginDto, VerifyOtpDto } from './dto';
+import { UserDocument } from '../users/users.schema';
+import { RegisterDto, VerifyOtpDto } from './dto';
 import { UserRole, SellerStatus } from '../common/enums';
 import { AUTH_MESSAGES, OTP_MESSAGES, USER_MESSAGES } from '../common/constants';
-import { JwtPayload } from '../common/interfaces';
+import {
+  JwtPayload,
+  RegisterResponse,
+  LoginResponse,
+  RefreshResponse,
+} from '../common/interfaces';
 
 @Injectable()
 export class AuthService {
@@ -31,13 +37,13 @@ export class AuthService {
     const access_token = await this.jwtService.signAsync(payload);
     const refresh_token = await this.jwtService.signAsync(payload, {
       secret: this.config.get('JWT_REFRESH_SECRET'),
-      expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN') ?? '7d',
+      expiresIn: (this.config.get('JWT_REFRESH_EXPIRES_IN') ?? '7d') as any,
     });
     return { access_token, refresh_token };
   }
 
   // --- REGISTER ---
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto): Promise<RegisterResponse> {
     // Build user doc based on role
     const userData: any = {
       email: dto.email,
@@ -83,7 +89,7 @@ export class AuthService {
     return true;
   }
 
-  async verifyOtp(dto: VerifyOtpDto) {
+  async verifyOtp(dto: VerifyOtpDto): Promise<{ message: string }> {
     const user = await this.usersService.findByEmail(dto.email, true);
     if (!user || !user.otpCode || !user.otpExpiresAt) {
       throw new BadRequestException(OTP_MESSAGES.INVALID);
@@ -102,7 +108,7 @@ export class AuthService {
     return { message: OTP_MESSAGES.VERIFIED };
   }
 
-  async resendOtp(email: string) {
+  async resendOtp(email: string): Promise<{ message: string }> {
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new BadRequestException(USER_MESSAGES.USER_NOT_FOUND);
     if (user.isEmailVerified) throw new BadRequestException(OTP_MESSAGES.ALREADY_VERIFIED);
@@ -112,7 +118,7 @@ export class AuthService {
   }
 
   // --- LOGIN (called by LocalStrategy) ---
-  async validateUser(email: string, password: string) {
+  async validateUser(email: string, password: string): Promise<UserDocument> {
     const user = await this.usersService.findByEmail(email, true);
     if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
@@ -129,21 +135,26 @@ export class AuthService {
     return user;
   }
 
-  async login(user: any) {
+  async login(user: UserDocument): Promise<LoginResponse> {
+    // user.id = string (Mongoose virtual)
+    // user._id = ObjectId
+    const userId = user.id;
+
     const payload: JwtPayload = {
-      sub: user._id.toString(),
+      sub: userId,
       email: user.email,
       role: user.role,
     };
 
     const tokens = await this.signTokens(payload);
     const refreshHash = await bcrypt.hash(tokens.refresh_token, 10);
-    await this.usersService.setRefreshToken(user._id, refreshHash);
+    await this.usersService.setRefreshToken(userId, refreshHash);
 
     return {
-      ...tokens,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
       user: {
-        id: user._id,
+        id: userId,
         email: user.email,
         role: user.role,
         firstName: user.firstName,
@@ -154,7 +165,7 @@ export class AuthService {
   }
 
   // --- REFRESH ---
-  async refresh(userId: string, refreshToken: string) {
+  async refresh(userId: string, refreshToken: string): Promise<RefreshResponse> {
     const user = await this.usersService.findById(userId, true);
     if (!user || !user.refreshTokenHash) {
       throw new UnauthorizedException(AUTH_MESSAGES.UNAUTHORIZED);
@@ -177,7 +188,7 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(userId: string) {
+  async logout(userId: string): Promise<{ message: string }> {
     await this.usersService.setRefreshToken(userId, null);
     return { message: AUTH_MESSAGES.LOGOUT_SUCCESS };
   }

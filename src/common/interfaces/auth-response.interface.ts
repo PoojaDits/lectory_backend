@@ -2,16 +2,15 @@ import { UserRole, SellerStatus } from '../enums';
 
 export interface RegisterResponse {
   message: string;
-  user: {
-    id: string;
-    email: string;
-    role: UserRole;
-    status?: SellerStatus;
-  };
+  userId: string;
+  email: string;
+  role: UserRole;
+  sellerStatus?: SellerStatus;
 }
 
 export interface LoginResponse {
   access_token: string;
+  refresh_token: string;
   user: {
     id: string;
     email: string;
@@ -20,4 +19,9 @@ export interface LoginResponse {
     lastName?: string;
     businessName?: string;
   };
+}
+
+export interface RefreshResponse {
+  access_token: string;
+  refresh_token: string;
 }

@@ -1,16 +1,31 @@
-import { Body, Controller, Post, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import {RegisterDto} from "./dto/register.dto";
-import { LoginDto } from './dto/login.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResendOtpDto } from './dto/resend-otp.dto';
+import {
+  RegisterDto,
+  LoginDto,
+  VerifyOtpDto,
+  ResendOtpDto,
+  RefreshTokenDto,
+} from './dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { AuthUser } from '../common/interfaces';
+import {
+  RegisterResponse,
+  LoginResponse,
+  RefreshResponse,
+} from '../common/interfaces';
+import { UserDocument } from '../users/users.schema';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -19,31 +34,33 @@ export class AuthController {
 
   // Step 1: Register (customer or seller)
   @Post('register')
-  register(@Body() dto: RegisterDto) {
+  register(@Body() dto: RegisterDto): Promise<RegisterResponse> {
     return this.authService.register(dto);
   }
 
   // Step 2: Verify OTP from email
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  verifyOtp(@Body() dto: VerifyOtpDto) {
+  verifyOtp(@Body() dto: VerifyOtpDto): Promise<{ message: string }> {
     return this.authService.verifyOtp(dto);
   }
 
   // Resend OTP
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
-  resendOtp(@Body() dto: ResendOtpDto) {
+  resendOtp(@Body() dto: ResendOtpDto): Promise<{ message: string }> {
     return this.authService.resendOtp(dto.email);
   }
 
   // Step 3: Login - passport-local validates email/password/otp/sellerStatus
-  // LocalAuthGuard runs LocalStrategy -> validate() -> req.user = full user doc
+  // LocalAuthGuard runs LocalStrategy -> validate() -> req.user = UserDocument
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiBody({ type: LoginDto })
-  async login(@Req() req: any) {
+  async login(
+    @Req() req: { user: UserDocument },
+  ): Promise<LoginResponse> {
     return this.authService.login(req.user);
   }
 
@@ -52,7 +69,9 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiBody({ type: RefreshTokenDto })
-  refresh(@Req() req: any) {
+  refresh(
+    @Req() req: { user: { userId: string; refreshToken: string } },
+  ): Promise<RefreshResponse> {
     // JwtRefreshStrategy puts { userId, refreshToken } in req.user
     return this.authService.refresh(req.user.userId, req.user.refreshToken);
   }
@@ -61,7 +80,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(@CurrentUser('userId') userId: string) {
+  logout(
+    @CurrentUser('userId') userId: string,
+  ): Promise<{ message: string }> {
     return this.authService.logout(userId);
   }
 }

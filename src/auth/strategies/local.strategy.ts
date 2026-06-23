@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-local';
 import { AuthService } from '../auth.service';
+import { UserDocument } from '../../users/users.schema';
 
 /**
  * passport-local strategy
@@ -14,7 +15,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     super({ usernameField: 'email' }); // passport-local defaults to "username", we use "email"
   }
 
-  async validate(email: string, password: string) {
+  async validate(email: string, password: string): Promise<UserDocument> {
     // AuthService.validateUser throws if:
     // - wrong password
     // - email not verified
