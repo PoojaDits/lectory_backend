@@ -4,11 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 
-/**
- * passport-jwt refresh strategy
- * Used by POST /auth/refresh
- * Extracts refresh_token from request body instead of header
- */
+
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor(config: ConfigService) {

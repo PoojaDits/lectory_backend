@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import {BadRequestException,ForbiddenException,Injectable,Logger, UnauthorizedException,} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -34,7 +28,6 @@ export class AuthService {
   ) {}
 
   private generateOtp(): string {
-    // 6-digit code: 100000 - 999999
     return crypto.randomInt(100000, 999999).toString();
   }
 
@@ -47,9 +40,9 @@ export class AuthService {
     return { access_token, refresh_token };
   }
 
-  // --- REGISTER ---
+  // REGISTER 
   async register(dto: RegisterDto): Promise<RegisterResponse> {
-    // Build user doc based on role
+ 
     const userData: any = {
       email: dto.email,
       role: dto.role,
@@ -68,7 +61,7 @@ export class AuthService {
 
     const user = await this.usersService.createUser(userData, dto.password);
 
-    // Send OTP via email
+    // Send OTP
     await this.sendOtp(user.id, user.email, user.role, user.firstName || user.contactPerson);
 
     return {
@@ -80,7 +73,7 @@ export class AuthService {
     };
   }
 
-  // --- OTP ---
+  // OTP 
   async sendOtp(userId: string, email?: string, role?: UserRole, name?: string) {
     const otp = this.generateOtp();
     const otpHash = await bcrypt.hash(otp, 10);
@@ -131,8 +124,6 @@ export class AuthService {
     );
     return { message: OTP_MESSAGES.RESENT };
   }
-
-  // --- LOGIN (called by LocalStrategy) ---
   async validateUser(email: string, password: string): Promise<UserDocument> {
     const user = await this.usersService.findByEmail(email, true);
     if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -151,8 +142,7 @@ export class AuthService {
   }
 
   async login(user: UserDocument): Promise<LoginResponse> {
-    // user.id = string (Mongoose virtual)
-    // user._id = ObjectId
+  
     const userId = user.id;
 
     const payload: JwtPayload = {
@@ -179,7 +169,7 @@ export class AuthService {
     };
   }
 
-  // --- REFRESH ---
+  // REFRESH
   async refresh(userId: string, refreshToken: string): Promise<RefreshResponse> {
     const user = await this.usersService.findById(userId, true);
     if (!user || !user.refreshTokenHash) {

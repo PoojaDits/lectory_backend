@@ -32,13 +32,13 @@ import { UserDocument } from '../users/users.schema';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  // Step 1: Register (customer or seller)
+  // Register 
   @Post('register')
   register(@Body() dto: RegisterDto): Promise<RegisterResponse> {
     return this.authService.register(dto);
   }
 
-  // Step 2: Verify OTP from email
+  // Verify OTP 
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   verifyOtp(@Body() dto: VerifyOtpDto): Promise<{ message: string }> {
@@ -52,8 +52,6 @@ export class AuthController {
     return this.authService.resendOtp(dto.email);
   }
 
-  // Step 3: Login - passport-local validates email/password/otp/sellerStatus
-  // LocalAuthGuard runs LocalStrategy -> validate() -> req.user = UserDocument
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -64,7 +62,7 @@ export class AuthController {
     return this.authService.login(req.user);
   }
 
-  // Step 4: Refresh tokens
+  // Refresh tokens
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -72,11 +70,11 @@ export class AuthController {
   refresh(
     @Req() req: { user: { userId: string; refreshToken: string } },
   ): Promise<RefreshResponse> {
-    // JwtRefreshStrategy puts { userId, refreshToken } in req.user
+
     return this.authService.refresh(req.user.userId, req.user.refreshToken);
   }
 
-  // Logout - invalidate refresh token
+  // Logout 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)

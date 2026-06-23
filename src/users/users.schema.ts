@@ -18,28 +18,28 @@ export class User {
   @Prop({ default: true })
   isActive: boolean;
 
-  // Email verification (OTP)
+  
   @Prop({ default: false })
   isEmailVerified: boolean;
 
   @Prop({ select: false })
-  otpCode?: string; // bcrypt hashed
+  otpCode?: string; 
 
   @Prop()
   otpExpiresAt?: Date;
 
-  // Refresh token (hashed)
+  
   @Prop({ select: false })
   refreshTokenHash?: string;
 
-  // Customer only
+  // Customer 
   @Prop()
   firstName?: string;
 
   @Prop()
   lastName?: string;
 
-  // Seller only
+  // Seller
   @Prop()
   businessName?: string;
 

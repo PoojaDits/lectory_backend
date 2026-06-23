@@ -29,7 +29,7 @@ export class RegisterDto {
   @MinLength(8, { message: VALIDATION_MESSAGES.PASSWORD_MIN })
   password: string;
 
-  // --- Customer only ---
+  //Customer only
   @ApiProperty({ required: false, example: 'Amit' })
   @ValidateIf((o) => o.role === UserRole.CUSTOMER)
   @IsString()
@@ -42,7 +42,7 @@ export class RegisterDto {
   @IsNotEmpty({ message: VALIDATION_MESSAGES.LAST_NAME_REQUIRED })
   lastName?: string;
 
-  // --- Seller only ---
+  // Seller 
   @ApiProperty({ required: false, example: 'My Store Pvt Ltd' })
   @ValidateIf((o) => o.role === UserRole.SELLER)
   @IsString()
