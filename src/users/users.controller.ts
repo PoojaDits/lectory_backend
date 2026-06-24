@@ -34,7 +34,7 @@ import { MailService } from '../mail/mail.service';
 import { SELLER_MESSAGES } from '../common/constants';
 
 @ApiTags('users')
-@ApiBearerAuth()
+@ApiBearerAuth('access-token')
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {

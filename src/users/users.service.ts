@@ -48,6 +48,26 @@ export class UsersService {
     return this.userModel.create({ ...data, password });
   }
 
+  async upsertAdmin(data: Partial<User>, plainPassword: string) {
+    const email = data.email!.toLowerCase();
+    const password = await bcrypt.hash(plainPassword, 12);
+
+    return this.userModel.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          ...data,
+          email,
+          role: UserRole.ADMIN,
+          password,
+          isActive: true,
+          isEmailVerified: true,
+        },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).exec();
+  }
+
   async findAll(query: QueryUsersDto = {}) {
     const page = Number(query.page ?? 1);
     const limit = Number(query.limit ?? 10);

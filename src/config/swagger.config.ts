@@ -8,4 +8,6 @@ export const swaggerConfig = new DocumentBuilder()
     { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
     'access-token',
   )
+  // Ensures Swagger UI sends the Authorization header with protected APIs.
+  .addSecurityRequirements('access-token')
   .build();
