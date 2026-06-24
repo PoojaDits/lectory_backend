@@ -35,17 +35,25 @@ export class UsersService {
   }
 
   async getByIdOrFail(id: string) {
-    const user = await this.findById(id);
-    if (!user) throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
-    return user;
+    try {
+      const user = await this.findById(id);
+      if (!user) throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+      return user;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createUser(data: Partial<User>, plainPassword: string) {
-    const exists = await this.findByEmail(data.email!);
-    if (exists) throw new ConflictException(USER_MESSAGES.EMAIL_EXISTS);
+    try {
+      const exists = await this.findByEmail(data.email!);
+      if (exists) throw new ConflictException(USER_MESSAGES.EMAIL_EXISTS);
 
-    const password = await bcrypt.hash(plainPassword, 12);
-    return this.userModel.create({ ...data, password });
+      const password = await bcrypt.hash(plainPassword, 12);
+      return this.userModel.create({ ...data, password });
+    } catch (error) {
+      throw error;
+    }
   }
 
   async upsertAdmin(data: Partial<User>, plainPassword: string) {
@@ -120,25 +128,29 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, dto: UpdateMeDto) {
-    const user = await this.getByIdOrFail(userId);
-    const update: Partial<User> = {};
+    try {
+      const user = await this.getByIdOrFail(userId);
+      const update: Partial<User> = {};
 
-    if (dto.password) {
-      update.password = await bcrypt.hash(dto.password, 12);
+      if (dto.password) {
+        update.password = await bcrypt.hash(dto.password, 12);
+      }
+
+      if (user.role === UserRole.CUSTOMER) {
+        if (dto.firstName !== undefined) update.firstName = dto.firstName;
+        if (dto.lastName !== undefined) update.lastName = dto.lastName;
+      }
+
+      if (user.role === UserRole.SELLER) {
+        if (dto.businessName !== undefined) update.businessName = dto.businessName;
+        if (dto.contactPerson !== undefined) update.contactPerson = dto.contactPerson;
+        if (dto.mobileNumber !== undefined) update.mobileNumber = dto.mobileNumber;
+      }
+
+      return this.userModel.findByIdAndUpdate(userId, update, { new: true }).exec();
+    } catch (error) {
+      throw error;
     }
-
-    if (user.role === UserRole.CUSTOMER) {
-      if (dto.firstName !== undefined) update.firstName = dto.firstName;
-      if (dto.lastName !== undefined) update.lastName = dto.lastName;
-    }
-
-    if (user.role === UserRole.SELLER) {
-      if (dto.businessName !== undefined) update.businessName = dto.businessName;
-      if (dto.contactPerson !== undefined) update.contactPerson = dto.contactPerson;
-      if (dto.mobileNumber !== undefined) update.mobileNumber = dto.mobileNumber;
-    }
-
-    return this.userModel.findByIdAndUpdate(userId, update, { new: true }).exec();
   }
 
   async setOtp(userId: string, otpHash: string, expiresAt: Date) {
@@ -164,31 +176,39 @@ export class UsersService {
   }
 
   async updateActiveStatus(id: string, isActive: boolean) {
-    const user = await this.userModel.findByIdAndUpdate(
-      id,
-      { isActive },
-      { new: true },
-    ).exec();
+    try {
+      const user = await this.userModel.findByIdAndUpdate(
+        id,
+        { isActive },
+        { new: true },
+      ).exec();
 
-    if (!user) throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
-    return user;
+      if (!user) throw new NotFoundException(USER_MESSAGES.USER_NOT_FOUND);
+      return user;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async approveSeller(id: string) {
-    const user = await this.getByIdOrFail(id);
-    if (user.role !== UserRole.SELLER) {
-      throw new BadRequestException('User is not a seller');
-    }
+    try {
+      const user = await this.getByIdOrFail(id);
+      if (user.role !== UserRole.SELLER) {
+        throw new BadRequestException('User is not a seller');
+      }
 
-    return this.userModel.findByIdAndUpdate(
-      id,
-      {
-        sellerStatus: SellerStatus.APPROVED,
-        rejectionReason: null,
-        approvedAt: new Date(),
-      },
-      { new: true },
-    ).exec();
+      return this.userModel.findByIdAndUpdate(
+        id,
+        {
+          sellerStatus: SellerStatus.APPROVED,
+          rejectionReason: null,
+          approvedAt: new Date(),
+        },
+        { new: true },
+      ).exec();
+    } catch (error) {
+      throw error;
+    }
   }
 
   async rejectSeller(id: string, rejectionReason?: string) {

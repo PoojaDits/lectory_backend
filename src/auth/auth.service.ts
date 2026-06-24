@@ -42,35 +42,39 @@ export class AuthService {
 
   // REGISTER 
   async register(dto: RegisterDto): Promise<RegisterResponse> {
- 
-    const userData: any = {
-      email: dto.email,
-      role: dto.role,
-      isEmailVerified: false,
-    };
+    try {
+      const userData: any = {
+        email: dto.email,
+        role: dto.role,
+        isEmailVerified: false,
+      };
 
-    if (dto.role === UserRole.CUSTOMER) {
-      userData.firstName = dto.firstName;
-      userData.lastName = dto.lastName;
-    } else if (dto.role === UserRole.SELLER) {
-      userData.businessName = dto.businessName;
-      userData.contactPerson = dto.contactPerson;
-      userData.mobileNumber = dto.mobileNumber;
-      userData.sellerStatus = SellerStatus.PENDING;
+      if (dto.role === UserRole.CUSTOMER) {
+        userData.firstName = dto.firstName;
+        userData.lastName = dto.lastName;
+      } else if (dto.role === UserRole.SELLER) {
+        userData.businessName = dto.businessName;
+        userData.contactPerson = dto.contactPerson;
+        userData.mobileNumber = dto.mobileNumber;
+        userData.sellerStatus = SellerStatus.PENDING;
+      }
+
+      const user = await this.usersService.createUser(userData, dto.password);
+
+      // Send OTP
+      await this.sendOtp(user.id, user.email, user.role, user.firstName || user.contactPerson);
+
+      return {
+        message: OTP_MESSAGES.SENT,
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        sellerStatus: user.sellerStatus,
+      };
+    } catch (error) {
+      this.logger.error(`Register failed: ${error.message}`, error.stack);
+      throw error;
     }
-
-    const user = await this.usersService.createUser(userData, dto.password);
-
-    // Send OTP
-    await this.sendOtp(user.id, user.email, user.role, user.firstName || user.contactPerson);
-
-    return {
-      message: OTP_MESSAGES.SENT,
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      sellerStatus: user.sellerStatus,
-    };
   }
 
   // OTP 
@@ -93,52 +97,67 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<{ message: string }> {
-    const user = await this.usersService.findByEmail(dto.email, true);
-    if (!user || !user.otpCode || !user.otpExpiresAt) {
-      throw new BadRequestException(OTP_MESSAGES.INVALID);
-    }
-    if (user.otpExpiresAt < new Date()) {
-      throw new BadRequestException(OTP_MESSAGES.INVALID);
-    }
-    if (user.isEmailVerified) {
-      throw new BadRequestException(OTP_MESSAGES.ALREADY_VERIFIED);
-    }
+    try {
+      const user = await this.usersService.findByEmail(dto.email, true);
+      if (!user || !user.otpCode || !user.otpExpiresAt) {
+        throw new BadRequestException(OTP_MESSAGES.INVALID);
+      }
+      if (user.otpExpiresAt < new Date()) {
+        throw new BadRequestException(OTP_MESSAGES.INVALID);
+      }
+      if (user.isEmailVerified) {
+        throw new BadRequestException(OTP_MESSAGES.ALREADY_VERIFIED);
+      }
 
-    const ok = await bcrypt.compare(dto.otp, user.otpCode);
-    if (!ok) throw new BadRequestException(OTP_MESSAGES.INVALID);
+      const ok = await bcrypt.compare(dto.otp, user.otpCode);
+      if (!ok) throw new BadRequestException(OTP_MESSAGES.INVALID);
 
-    await this.usersService.markEmailVerified(user.id);
-    return { message: OTP_MESSAGES.VERIFIED };
+      await this.usersService.markEmailVerified(user.id);
+      return { message: OTP_MESSAGES.VERIFIED };
+    } catch (error) {
+      this.logger.error(`Verify OTP failed: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async resendOtp(email: string): Promise<{ message: string }> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) throw new BadRequestException(USER_MESSAGES.USER_NOT_FOUND);
-    if (user.isEmailVerified) throw new BadRequestException(OTP_MESSAGES.ALREADY_VERIFIED);
+    try {
+      const user = await this.usersService.findByEmail(email);
+      if (!user) throw new BadRequestException(USER_MESSAGES.USER_NOT_FOUND);
+      if (user.isEmailVerified) throw new BadRequestException(OTP_MESSAGES.ALREADY_VERIFIED);
 
-    await this.sendOtp(
-      user.id,
-      user.email,
-      user.role,
-      user.firstName || user.contactPerson,
-    );
-    return { message: OTP_MESSAGES.RESENT };
+      await this.sendOtp(
+        user.id,
+        user.email,
+        user.role,
+        user.firstName || user.contactPerson,
+      );
+      return { message: OTP_MESSAGES.RESENT };
+    } catch (error) {
+      this.logger.error(`Resend OTP failed: ${error.message}`, error.stack);
+      throw error;
+    }
   }
   async validateUser(email: string, password: string): Promise<UserDocument> {
-    const user = await this.usersService.findByEmail(email, true);
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
+    try {
+      const user = await this.usersService.findByEmail(email, true);
+      if (!user || !(await bcrypt.compare(password, user.password))) {
+        throw new UnauthorizedException(AUTH_MESSAGES.INVALID_CREDENTIALS);
+      }
+      if (!user.isEmailVerified) {
+        throw new ForbiddenException(OTP_MESSAGES.NOT_VERIFIED);
+      }
+      if (
+        user.role === UserRole.SELLER &&
+        user.sellerStatus !== SellerStatus.APPROVED
+      ) {
+        throw new ForbiddenException(AUTH_MESSAGES.SELLER_PENDING);
+      }
+      return user;
+    } catch (error) {
+      this.logger.error(`Validate user failed: ${error.message}`, error.stack);
+      throw error;
     }
-    if (!user.isEmailVerified) {
-      throw new ForbiddenException(OTP_MESSAGES.NOT_VERIFIED);
-    }
-    if (
-      user.role === UserRole.SELLER &&
-      user.sellerStatus !== SellerStatus.APPROVED
-    ) {
-      throw new ForbiddenException(AUTH_MESSAGES.SELLER_PENDING);
-    }
-    return user;
   }
 
   async login(user: UserDocument): Promise<LoginResponse> {
